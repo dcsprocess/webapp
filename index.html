@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Keypad Karbonatasi v4</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --secondary-bg: var(--tg-theme-secondary-bg-color, #f0f0f3);
+    --text: var(--tg-theme-text-color, #1c1c1e);
+    --hint: var(--tg-theme-hint-color, #8a8a8e);
+    --accent: var(--tg-theme-button-color, #2ea6ff);
+    --accent-text: var(--tg-theme-button-text-color, #ffffff);
+    --danger: #ff3b30;
+    --divider: rgba(120, 120, 128, 0.24);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overscroll-behavior: none; user-select: none;
+  }
+  .wrap {
+    display: flex; flex-direction: column; height: 100%;
+    padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  }
+  .top-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-bottom: 2px; gap: 6px;
+  }
+  .pill-btn {
+    border: none; background: none; font-size: 14px; font-weight: 600;
+    padding: 6px 8px; white-space: nowrap;
+  }
+  .pill-btn.cancel { color: var(--danger); }
+  .pill-btn.clear { color: var(--accent); }
+  .pill-btn.back { color: var(--accent); visibility: hidden; }
+  .pill-btn.back.show { visibility: visible; }
+  .label {
+    flex: 1; text-align: center; font-size: 14px; color: var(--hint);
+    padding: 6px 2px 2px; letter-spacing: 0.2px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .progress-track {
+    height: 4px; border-radius: 2px; background: var(--secondary-bg);
+    margin: 2px 0 10px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; background: var(--accent); border-radius: 2px;
+    transition: width 0.15s ease;
+  }
+  .display-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; margin: 4px 0 16px;
+  }
+  .display {
+    flex: 1; text-align: center; font-size: 44px; font-weight: 600;
+    background: var(--secondary-bg); border-radius: 16px;
+    padding: 18px 12px; min-height: 30px; letter-spacing: 0.5px;
+    overflow-x: auto; white-space: nowrap;
+  }
+  .display.empty { color: var(--hint); }
+  .keys {
+    flex: 1; display: grid; grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(4, 1fr); gap: 10px; min-height: 0;
+  }
+  button.key {
+    border: none; border-radius: 18px; background: var(--secondary-bg);
+    color: var(--text); font-size: 28px; font-weight: 500;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.06s ease, opacity 0.06s ease;
+  }
+  button.key:active { transform: scale(0.94); opacity: 0.7; }
+  button.key.func { font-size: 20px; color: var(--hint); font-weight: 600; }
+  .warn {
+    text-align: center; font-size: 13px; color: #ff9500;
+    min-height: 18px; margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top-row">
+      <button class="pill-btn back" id="btnBack">◂ Kembali</button>
+      <button class="pill-btn cancel" id="btnCancel">❌ Batal</button>
+      <div class="label" id="label">Nilai</div>
+      <button class="pill-btn clear" id="btnClear">Hapus</button>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="display-row">
+      <div class="display empty" id="display">0</div>
+    </div>
+    <div class="warn" id="warn"></div>
+    <div class="keys">
+      <button class="key" data-k="7">7</button>
+      <button class="key" data-k="8">8</button>
+      <button class="key" data-k="9">9</button>
+      <button class="key" data-k="4">4</button>
+      <button class="key" data-k="5">5</button>
+      <button class="key" data-k="6">6</button>
+      <button class="key" data-k="1">1</button>
+      <button class="key" data-k="2">2</button>
+      <button class="key" data-k="3">3</button>
+      <button class="key func" data-k="-">±</button>
+      <button class="key" data-k="0">0</button>
+      <button class="key func" data-k="." >,</button>
+      <button class="key func" data-k="back" style="grid-column: span 3;">⌫ &nbsp;Backspace</button>
+    </div>
+  </div>
+
+<script>
+  var tg = window.Telegram ? window.Telegram.WebApp : null;
+
+  // ---- Ambil daftar parameter dari query string (dikirim bot.py sekali di awal sesi) ----
+  var urlParams = new URLSearchParams(window.location.search);
+  var token = urlParams.get("token") || "";
+  var report = urlParams.get("report") || "";
+  var params = [];
+  try { params = JSON.parse(urlParams.get("params") || "[]"); } catch (e) { params = []; }
+  if (!Array.isArray(params) || params.length === 0) {
+    params = [{ key: "nilai", label: "Nilai", satuan: "" }];
+  }
+
+  var idx = 0;
+  var values = params.map(function () { return ""; });
+  var negatives = params.map(function () { return false; });
+
+  var value = "";
+  var negative = false;
+
+  var displayEl = document.getElementById("display");
+  var warnEl = document.getElementById("warn");
+  var labelEl = document.getElementById("label");
+  var progressEl = document.getElementById("progressFill");
+  var btnClear = document.getElementById("btnClear");
+  var btnCancel = document.getElementById("btnCancel");
+  var btnBack = document.getElementById("btnBack");
+
+  if (tg) {
+    tg.ready();
+    tg.expand();
+  }
+
+  function haptic(style) {
+    if (tg && tg.HapticFeedback) {
+      if (style === "light") tg.HapticFeedback.impactOccurred("light");
+      else if (style === "rigid") tg.HapticFeedback.impactOccurred("rigid");
+      else if (style === "error") tg.HapticFeedback.notificationOccurred("error");
+    }
+  }
+
+  function loadCurrent() {
+    value = values[idx];
+    negative = negatives[idx];
+  }
+
+  function commitCurrent() {
+    values[idx] = value;
+    negatives[idx] = negative;
+  }
+
+  function render() {
+    var p = params[idx];
+    var unit = p.satuan ? (" (" + p.satuan + ")") : "";
+    labelEl.textContent = (idx + 1) + "/" + params.length + " · " + p.label + unit;
+    progressEl.style.width = Math.round(((idx + 1) / params.length) * 100) + "%";
+
+    var shown = (negative ? "-" : "") + value;
+    if (!value) {
+      displayEl.textContent = "0";
+      displayEl.classList.add("empty");
+    } else {
+      displayEl.textContent = shown;
+      displayEl.classList.remove("empty");
+    }
+
+    // tombol "Kembali" di dalam UI - cuma muncul kalau bukan di param pertama
+    if (idx > 0) btnBack.classList.add("show"); else btnBack.classList.remove("show");
+
+    // native BackButton Telegram (pojok kiri atas header) sebagai tambahan, kalau didukung klien
+    if (tg && tg.BackButton) {
+      if (idx > 0) tg.BackButton.show(); else tg.BackButton.hide();
+    }
+
+    updateMainButton();
+  }
+
+  function updateMainButton() {
+    if (!tg) return;
+    var hasValue = value.length > 0;
+    var isLast = idx === params.length - 1;
+    var shown = hasValue ? ((negative ? "-" : "") + value) : "";
+    var label = isLast
+      ? (hasValue ? ("✅ Kirim Semua  " + shown) : "✅ Kirim Semua")
+      : (hasValue ? ("Lanjut ▸  " + shown) : "Lanjut ▸");
+    tg.MainButton.setText(label);
+    tg.MainButton.color = isLast ? "#34c759" : (tg.themeParams.button_color || "#2ea6ff");
+    if (hasValue) {
+      tg.MainButton.enable();
+      tg.MainButton.show();
+    } else {
+      tg.MainButton.show();
+      tg.MainButton.disable();
+    }
+  }
+
+  function addDigit(d) {
+    warnEl.textContent = "";
+    if (value.length >= 10) { haptic("error"); return; }
+    if (value === "0") value = d;
+    else value += d;
+    haptic("light");
+    render();
+  }
+
+  function addDot() {
+    warnEl.textContent = "";
+    if (value.indexOf(".") !== -1) { haptic("error"); warnEl.textContent = "Sudah ada koma"; return; }
+    if (value === "") value = "0";
+    value += ".";
+    haptic("light");
+    render();
+  }
+
+  function backspace() {
+    if (value.length === 0) { haptic("error"); return; }
+    value = value.slice(0, -1);
+    haptic("light");
+    render();
+  }
+
+  function clearAll() {
+    value = "";
+    negative = false;
+    warnEl.textContent = "";
+    haptic("rigid");
+    render();
+  }
+
+  function toggleSign() {
+    negative = !negative;
+    haptic("light");
+    render();
+  }
+
+  function goNext() {
+    if (!value) { haptic("error"); return; }
+    commitCurrent();
+    warnEl.textContent = "";
+    if (idx < params.length - 1) {
+      idx++;
+      loadCurrent();
+      render();
+    } else {
+      finish();
+    }
+  }
+
+  function goBack() {
+    if (idx === 0) return;
+    commitCurrent();
+    idx--;
+    loadCurrent();
+    warnEl.textContent = "";
+    haptic("light");
+    render();
+  }
+
+  function cancelAll() {
+    haptic("rigid");
+    if (tg) tg.sendData(JSON.stringify({ action: "cancel", token: token, report: report }));
+  }
+
+  function finish() {
+    var out = {};
+    for (var i = 0; i < params.length; i++) {
+      var raw = (values[i] || "").replace(",", ".");
+      var num = parseFloat(raw);
+      if (negatives[i]) num = -num;
+      out[params[i].key] = String(num);
+    }
+    if (tg) tg.sendData(JSON.stringify({ action: "submit", token: token, report: report, values: out }));
+  }
+
+  document.querySelectorAll(".key").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var k = btn.getAttribute("data-k");
+      if (k === "back") backspace();
+      else if (k === ".") addDot();
+      else if (k === "-") toggleSign();
+      else addDigit(k);
+    });
+  });
+
+  btnClear.addEventListener("click", clearAll);
+  btnCancel.addEventListener("click", cancelAll);
+  btnBack.addEventListener("click", goBack);
+
+  if (tg) {
+    tg.MainButton.onClick(goNext);
+    if (tg.BackButton) tg.BackButton.onClick(goBack);
+  }
+
+  loadCurrent();
+  render();
+</script>
+</body>
+</html>
