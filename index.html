@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="operator-ui-version" content="v-final-dynamic-responsive-2">
+<title>Operator Input</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:var(--tg-theme-bg-color,#fff);
+  --card:var(--tg-theme-secondary-bg-color,#f2f2f7);
+  --text:var(--tg-theme-text-color,#111);
+  --hint:var(--tg-theme-hint-color,#777);
+  --btn:var(--tg-theme-button-color,#2481cc);
+  --btntext:var(--tg-theme-button-text-color,#fff);
+  --ok:#22a06b;--warn:#e67e00;--bad:#d93025;--bad-tint:rgba(217,48,37,.10);
+
+  /* Skala dinamis: menyesuaikan tinggi viewport perangkat (HP pendek, HP tinggi, tablet)
+     sambil menjaga target sentuh tetap nyaman (>=44px). */
+  --gap-section:clamp(10px, 2.0dvh, 18px);
+  --gap-key:clamp(8px, 1.6dvh, 14px);
+  --key-h:clamp(48px, 7.4dvh, 64px);
+  --display-h:clamp(56px, 8dvh, 70px);
+  --card-h:clamp(78px, 11dvh, 92px);
+  --nav-h:clamp(44px, 6dvh, 50px);
+  --radius-lg:clamp(16px, 2.8vw, 20px);
+  --radius-md:clamp(13px, 2.2vw, 18px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{
+  margin:0;width:100%;min-height:100%;
+  background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+}
+body{overflow-x:hidden;overflow-y:auto}
+button{font:inherit}
+.app{
+  width:100%;max-width:520px;margin:0 auto;
+  min-height:100dvh;
+  padding:clamp(6px,1.2dvh,12px) 14px calc(clamp(8px,1.5dvh,16px) + env(safe-area-inset-bottom));
+}
+.head{
+  display:grid;grid-template-columns:auto 1fr auto;
+  align-items:center;column-gap:8px;
+  min-height:46px;
+}
+.head button{
+  border:0;background:transparent;color:var(--btn);
+  font-size:14px;font-weight:800;padding:8px 3px;
+}
+.head .cancel{color:var(--bad)}
+.title{text-align:center;font-weight:850;font-size:16px;line-height:19px}
+.sub{text-align:center;color:var(--hint);font-size:11px;margin-top:2px}
+.progress{
+  height:4px;background:var(--card);border-radius:99px;
+  overflow:hidden;margin:clamp(3px,.7dvh,6px) 0 clamp(7px,1.4dvh,12px);
+}
+.progress>i{
+  display:block;height:100%;width:0;background:var(--btn);transition:width .2s;
+}
+.meta{
+  display:flex;flex-wrap:wrap;gap:4px 10px;
+  background:var(--card);border-radius:14px;
+  padding:8px 11px;margin-bottom:clamp(7px,1.4dvh,12px);
+  font-size:10px;color:var(--hint);
+}
+.meta b{color:var(--text)}
+
+#entry{display:flex;flex-direction:column;gap:0}
+#entry>*{margin-bottom:var(--gap-section)}
+#entry>.note{margin-bottom:4px}
+#entry>.nav-buttons{margin-bottom:0}
+
+.parameter-card{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  height:var(--card-h);min-height:var(--card-h);
+  padding:12px 14px;
+  background:var(--card);
+  border-radius:var(--radius-lg);
+  box-shadow:0 0 0 1px rgba(128,128,128,.04);
+}
+.param-main{min-width:0}
+.label{font-size:17px;font-weight:850;line-height:1.18;overflow-wrap:anywhere}
+.unit{font-size:10px;color:var(--hint);margin-top:4px}
+.std{font-size:10px;margin-top:5px}
+.state{font-size:11px;font-weight:800;min-height:13px;margin-top:3px}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+
+.param-person{
+  min-width:86px;max-width:132px;
+  padding-left:13px;margin-left:10px;
+  border-left:1px solid rgba(128,128,128,.20);
+  text-align:right;
+}
+.operator-name{font-size:13px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.operator-shift{margin-top:3px;font-size:10px;color:var(--hint);white-space:nowrap}
+
+.display{
+  width:100%;height:var(--display-h);min-height:var(--display-h);flex:none;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--card);border-radius:var(--radius-lg);
+  box-shadow:0 0 0 1px rgba(128,128,128,.04);
+  font-size:clamp(30px,8vw,38px);font-weight:850;letter-spacing:.5px;
+  font-variant-numeric:tabular-nums;
+}
+.empty{color:var(--hint);font-weight:500}
+
+/* ===== Keypad ===== */
+.keys{
+  width:100%;display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-rows:repeat(5,var(--key-h));
+  row-gap:var(--gap-key);
+  column-gap:clamp(8px,2vw,12px);
+}
+.key{
+  width:100%;height:100%;
+  border:0;border-radius:var(--radius-md);
+  background:var(--card);color:var(--text);
+  font-size:clamp(20px,6.2vw,26px);font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  touch-action:manipulation;-webkit-touch-callout:none;user-select:none;
+  box-shadow:0 1.5px 0 rgba(128,128,128,.16);
+  transition:transform .08s ease,box-shadow .08s ease,filter .08s ease;
+}
+.key:active{
+  transform:translateY(1px) scale(.97);
+  filter:brightness(.92);
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.20);
+}
+.key:focus-visible{outline:2px solid var(--btn);outline-offset:2px}
+
+/* Baris fungsi/simbol memakai teks lebih kecil agar tidak berdesakan */
+.key[data-k="sign"],
+.key[data-k="dot"]{font-size:clamp(16px,4.4vw,19px);font-weight:800}
+
+/* Baris aksi terakhir: Hapus (2 kolom, aksi paling sering dipakai)
+   dan Hapus Semua (1 kolom, ditandai warna agar tidak tersentuh tanpa sengaja) */
+.key[data-k="back"]{
+  grid-column:span 2;
+  font-size:clamp(15px,3.8vw,17px);font-weight:800;
+  gap:6px;
+}
+.key[data-k="clear"]{
+  grid-column:span 1;
+  font-size:clamp(10.5px,2.8vw,12.5px);font-weight:800;
+  color:var(--bad);background:var(--bad-tint);
+  line-height:1.15;text-align:center;padding:2px;
+}
+/* ===== /Keypad ===== */
+
+.draft-status{min-height:13px;text-align:center;color:var(--hint);font-size:10px;line-height:13px}
+.draft-status.saved{color:var(--ok)}
+.note{min-height:13px;height:13px;text-align:center;color:var(--hint);font-size:10px;line-height:13px}
+
+.nav-buttons{display:grid;grid-template-columns:1fr 1.25fr;gap:clamp(8px,1.8vw,12px)}
+.nav-btn{height:var(--nav-h);min-height:var(--nav-h);border:0;border-radius:15px;font-size:14px;font-weight:850;touch-action:manipulation}
+.nav-btn.prev{background:var(--card);color:var(--text)}
+.nav-btn.next{background:var(--btn);color:var(--btntext)}
+.nav-btn:disabled{opacity:.42}
+.nav-btn:active{transform:scale(.98)}
+
+.review{display:none;min-height:0;overflow:visible;padding-top:8px}
+.review.show{display:block}
+.list{background:var(--card);border-radius:16px;padding:0 12px}
+.row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(128,128,128,.18)}
+.row:last-child{border:0}
+.name{min-width:0}.name b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}.name span{font-size:10px;color:var(--hint)}
+.val{font-weight:850}
+.badge{font-size:10px;font-weight:850;min-width:45px;text-align:right}
+.ready{color:var(--ok)}.check{color:var(--warn)}.missing{color:var(--bad)}
+
+/* Layar sangat sempit (HP kecil / mode terlipat) */
+@media(max-width:340px){
+  :root{--gap-key:6px;--radius-md:12px}
+  .key{font-size:clamp(18px,7vw,22px)}
+  .key[data-k="back"]{font-size:13px}
+  .key[data-k="clear"]{font-size:10px}
+}
+
+/* Layar lebar (tablet) — batasi lebar keypad agar tombol tidak jadi terlalu besar/jauh dari ibu jari */
+@media(min-width:600px){
+  .app{padding-left:18px;padding-right:18px;max-width:560px}
+}
+
+/* Viewport pendek (HP dalam split-screen, browser bar besar, dsb.) */
+@media(max-height:620px){
+  :root{
+    --gap-section:9px;--gap-key:6px;
+    --key-h:44px;--display-h:52px;--card-h:74px;--nav-h:42px;
+  }
+}
+
+/* Viewport tinggi (tablet/desktop) — tombol boleh lebih besar dan lega */
+@media(min-height:900px){
+  :root{
+    --gap-section:18px;--gap-key:13px;
+    --key-h:64px;--display-h:72px;--card-h:94px;--nav-h:50px;
+  }
+}
+
+/* Landscape di HP: ruang vertikal sempit, keypad tetap harus muat tanpa scroll */
+@media(orientation:landscape) and (max-height:500px){
+  .app{max-width:720px}
+  :root{
+    --gap-section:8px;--gap-key:6px;
+    --key-h:40px;--display-h:46px;--card-h:64px;--nav-h:38px;
+  }
+  .keys{max-width:360px;margin-inline:auto}
+}
+
+/* Perangkat tanpa hover kasar (mouse) mendapat efek hover halus, disembunyikan di layar sentuh */
+@media(hover:hover) and (pointer:fine){
+  .key:hover{
+    filter:brightness(.95);
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.12);
+    transform:translateY(.5px);
+  }
+  .key:hover:active{
+    filter:brightness(.90);
+    box-shadow:inset 0 2px 5px rgba(0,0,0,.22);
+    transform:translateY(1px) scale(.97);
+  }
+  .nav-btn:not(:disabled):hover{filter:brightness(0.97)}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .key,.nav-btn{transition:none}
+  .key:active,.nav-btn:active{transform:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="head"><button class="cancel" id="cancel">❌ Batal</button><div><div class="title" id="title">Input Operator</div><div class="sub" id="sub">1 / 1</div></div><button id="reviewBtn">📋 Ringkas</button></div>
+  <div class="progress"><i id="bar"></i></div>
+  <div class="meta" id="meta"></div>
+
+  <section id="entry">
+    <div class="card parameter-card">
+  <div class="param-main">
+    <div class="label" id="label">Nilai</div>
+    <div class="unit" id="unit"></div>
+    <div class="std" id="std"></div>
+    <div class="state" id="state"></div>
+  </div>
+  <div class="param-person">
+    <div class="operator-name" id="operatorName">-</div>
+    <div class="operator-shift" id="operatorShift">Shift -</div>
+  </div>
+</div>
+    <div class="display empty" id="display">0</div>
+    <div class="keys">
+      <button class="key" data-k="1" aria-label="Angka 1">1</button>
+      <button class="key" data-k="2" aria-label="Angka 2">2</button>
+      <button class="key" data-k="3" aria-label="Angka 3">3</button>
+      <button class="key" data-k="4" aria-label="Angka 4">4</button>
+      <button class="key" data-k="5" aria-label="Angka 5">5</button>
+      <button class="key" data-k="6" aria-label="Angka 6">6</button>
+      <button class="key" data-k="7" aria-label="Angka 7">7</button>
+      <button class="key" data-k="8" aria-label="Angka 8">8</button>
+      <button class="key" data-k="9" aria-label="Angka 9">9</button>
+      <button class="key" data-k="sign" aria-label="Ubah tanda plus minus">±</button>
+      <button class="key" data-k="0" aria-label="Angka 0">0</button>
+      <button class="key" data-k="dot" aria-label="Titik desimal">,</button>
+      <button class="key" data-k="back" aria-label="Hapus satu digit terakhir">⌫ Hapus</button>
+      <button class="key" data-k="clear" aria-label="Hapus semua nilai">↺ Semua</button>
+    </div>
+    <div class="note" id="note"></div>
+    <div class="draft-status" id="draftStatus"></div>
+    <div class="nav-buttons">
+      <button type="button" class="nav-btn prev" id="prevBtn">‹ Kembali</button>
+      <button type="button" class="nav-btn next" id="nextBtn">Lanjut ›</button>
+    </div>
+  </section>
+
+  <section class="review" id="review"><div class="list" id="list"></div></section>
+</div>
+<script>
+(()=>{"use strict";
+// iOS Safari/WKWebView tidak akan menerapkan :active saat tap kecuali ada listener
+// touch terpasang di dokumen — tanpa ini efek "ditekan" di CSS tidak pernah muncul di HP.
+document.addEventListener("touchstart",()=>{},{passive:true});
+const tg=window.Telegram?.WebApp||null, qs=new URLSearchParams(location.search);
+const parse=(s,f)=>{try{return JSON.parse(s||"")||f}catch(e){return f}};
+let params=parse(qs.get("params"),[]), meta=parse(qs.get("meta"),{});
+params=Array.isArray(params)?params.map(p=>({key:String(p.key||""),label:String(p.label||p.key||"Nilai"),satuan:String(p.satuan||""),stdMin:p.stdMin??p.min??null,stdMax:p.stdMax??p.max??null,stdText:String(p.stdText||p.std||"")})).filter(p=>p.key):[];
+if(!params.length)params=[{key:"nilai",label:"Nilai",satuan:""}];
+let i=0, vals=params.map(()=>""), neg=params.map(()=>false), review=false;
+const $=x=>document.getElementById(x), display=$("display"), label=$("label"), unit=$("unit"), std=$("std"), state=$("state");
+const operatorName=$("operatorName"), operatorShift=$("operatorShift"), prevBtn=$("prevBtn"), nextBtn=$("nextBtn");
+if(operatorName)operatorName.textContent=meta.nama_operator||meta.operator||"-";
+if(operatorShift)operatorShift.textContent=meta.shift?("Shift "+String(meta.shift).replace(/^Shift\s*/i,"")):"Shift -";
+if(tg){tg.ready();tg.expand()}
+function h(t){try{tg?.HapticFeedback?.impactOccurred(t||"light")}catch(e){}}
+const draftStatus=$("draftStatus");
+const draftKey=(()=>{
+ const stable={params:params.map(p=>p.key),tanggal:meta.tanggal||"",jam:meta.jam||"",shift:meta.shift||"",grup:meta.grup||"",operator:meta.nama_operator||meta.operator||""};
+ let s="operatorDraft:v2:"+JSON.stringify(stable),h=0;for(let k=0;k<s.length;k++)h=((h<<5)-h+s.charCodeAt(k))|0;
+ return "operatorDraft:v2:"+Math.abs(h);
+})();
+function saveDraft(){
+ try{localStorage.setItem(draftKey,JSON.stringify({vals,neg,i,ts:Date.now()}));
+ if(draftStatus){draftStatus.className="draft-status saved";draftStatus.textContent="✓ Draft tersimpan otomatis"}}catch(e){}
+}
+function restoreDraft(){
+ try{const d=JSON.parse(localStorage.getItem(draftKey)||"null");
+ if(!d||!Array.isArray(d.vals)||d.vals.length!==params.length||!d.vals.some(v=>String(v||"").length))return;
+ for(let j=0;j<params.length;j++){vals[j]=String(d.vals[j]||"");neg[j]=!!(d.neg&&d.neg[j])}
+ if(Number.isInteger(d.i))i=Math.max(0,Math.min(params.length-1,d.i));
+ if(draftStatus){draftStatus.className="draft-status saved";draftStatus.textContent="↻ Draft terakhir dipulihkan"}
+ }catch(e){}
+}
+function clearDraft(){try{localStorage.removeItem(draftKey)}catch(e){}}
+function raw(j=i){return (neg[j]?"-":"")+vals[j]}
+function num(j=i){if(!vals[j])return null;const n=parseFloat(raw(j));return Number.isFinite(n)?n:null}
+function renderMeta(){const keys=[["tanggal","Tanggal"],["jam","Jam"],["shift","Shift"],["grup","Grup"],["nama_operator","Operator"],["supervisor","SPV"],["shift_chief","Shift Chief"]];$("meta").innerHTML=keys.filter(x=>meta[x[0]]).map(x=>"<span>"+x[1]+": <b>"+String(meta[x[0]])+"</b></span>").join("")}
+function render(){
+ if(review)return;
+ const p=params[i], n=num(); label.textContent=p.label;unit.textContent=p.satuan?"Satuan: "+p.satuan:"";
+ $("sub").textContent=(i+1)+" / "+params.length;$("bar").style.width=((i+1)/params.length*100)+"%";
+ display.textContent=vals[i]?raw():"0";display.classList.toggle("empty",!vals[i]);
+ std.textContent=p.stdText||((p.stdMin!=null&&p.stdMax!=null)?("Standar: "+p.stdMin+" – "+p.stdMax+(p.satuan?" "+p.satuan:"")):"");
+state.textContent="";state.className="state";
+if(n!==null&&p.stdMin!=null&&p.stdMax!=null){ const lo=Number(p.stdMin),hi=Number(p.stdMax); if(Number.isFinite(lo)&&Number.isFinite(hi)&&(n<lo||n>hi)){ state.className="state warn";state.textContent="⚠ Di luar standar — tetap bisa disimpan"; }}
+ $("note").textContent=params.length>1?"Nilai tersimpan saat berpindah parameter.":"Isi nilai, lalu Review & Kirim.";
+if(prevBtn){prevBtn.disabled=i===0;}
+if(nextBtn){nextBtn.textContent=i===params.length-1?"Review & Kirim":"Lanjut ›";}
+}
+function next(){if(num()===null){state.className="state bad";state.textContent="❌ Nilai belum diisi";h("rigid");return}if(i<params.length-1){i++;saveDraft();render()}else{saveDraft();showReview(true)}}
+function back(){if(review){showReview(false);return}if(i){i--;render()}}
+function showReview(on){review=on;$("entry").style.display=on?"none":"block";$("review").classList.toggle("show",on);$("title").textContent=on?"Periksa Laporan":"Input Operator";$("reviewBtn").textContent=on?"✏️ Edit":"📋 Ringkas";
+if(on){renderList();tg?.MainButton?.setText("✅ Kirim Semua");tg?.MainButton?.show();tg?.MainButton?.enable()}else{tg?.MainButton?.hide();render()}}
+function renderList(){const list=$("list");list.innerHTML="";params.forEach((p,j)=>{const n=num(j),r=document.createElement("div");r.className="row";r.innerHTML='<div class="name"><b>'+(j+1)+". "+p.label+'</b><span>'+p.satuan+'</span></div><div class="val">'+(n===null?"-":n)+'</div><div class="badge '+(n===null?"missing":"ready")+'">'+(n===null?"KOSONG":"SIAP")+"</div>";r.onclick=()=>{i=j;showReview(false)};list.appendChild(r)})}
+function finish(){for(let j=0;j<params.length;j++)if(num(j)===null){i=j;showReview(false);h("rigid");return}const values={};params.forEach((p,j)=>values[p.key]=String(num(j)));clearDraft();h("medium");tg?.sendData(JSON.stringify({action:"submit",values}))}
+$("cancel").onclick=()=>tg?.sendData(JSON.stringify({action:"cancel"}));
+$("reviewBtn").onclick=()=>showReview(!review);
+prevBtn?.addEventListener("click",back);
+nextBtn?.addEventListener("click",next);
+document.querySelectorAll(".key").forEach(b=>b.onclick=()=>{const k=b.dataset.k;if(k==="back"){vals[i]=vals[i].slice(0,-1);if(!vals[i])neg[i]=false}else if(k==="clear"){vals[i]="";neg[i]=false}else if(k==="dot"){if(!vals[i].includes("."))vals[i]=vals[i]||"0",vals[i]+="."}else if(k==="sign"){if(vals[i])neg[i]=!neg[i]}else if(vals[i].length<10){vals[i]=vals[i]==="0"?k:vals[i]+k}h();saveDraft();render()});
+tg?.MainButton?.onClick(()=>{if(review)finish();});tg?.BackButton?.onClick(back);
+window.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();review?finish():next()}else if(e.key==="Backspace"){e.preventDefault();vals[i]=vals[i].slice(0,-1);if(!vals[i])neg[i]=false;saveDraft();render()}else if(/^\d$/.test(e.key)){vals[i]=(vals[i]==="0"?e.key:vals[i]+e.key).slice(0,10);saveDraft();render()}else if(e.key==="."||e.key===","){if(!vals[i].includes("."))vals[i]=vals[i]||"0",vals[i]+=".";saveDraft();render()}else if(e.key==="-"){neg[i]=!neg[i];saveDraft();render()}});
+renderMeta();tg?.MainButton?.hide();
+restoreDraft();
+render();showReview(false);
+})();
+</script>
+</body>
+</html>
